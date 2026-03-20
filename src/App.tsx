@@ -71,21 +71,60 @@ const FEATURED_EVENTS: SportEvent[] = [
     location: 'Stade de France, Saint-Denis',
     price: 95,
     image: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=80&w=800',
-    category: 'Rugby'
+    category: 'Autres sports'
+  },
+  {
+    id: '5',
+    title: 'Lyon vs Monaco',
+    sport: 'Football',
+    date: '28 Mars 2026',
+    location: 'Groupama Stadium, Lyon',
+    price: 40,
+    image: 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?auto=format&fit=crop&q=80&w=800',
+    category: 'Football'
+  },
+  {
+    id: '6',
+    title: 'Montpellier vs Nantes',
+    sport: 'Handball',
+    date: '02 Avril 2026',
+    location: 'Sud de France Arena, Montpellier',
+    price: 25,
+    image: 'https://images.unsplash.com/photo-1519861531473-920036214751?auto=format&fit=crop&q=80&w=800',
+    category: 'Handball'
+  },
+  {
+    id: '7',
+    title: 'All Star Game Basketball',
+    sport: 'Basketball',
+    date: '15 Avril 2026',
+    location: 'Accor Arena, Paris',
+    price: 55,
+    image: 'https://images.unsplash.com/photo-1504450758481-7338eba7524a?auto=format&fit=crop&q=80&w=800',
+    category: 'Autres sports'
   }
 ];
 
 const CATEGORIES = [
+  { name: 'Tous', icon: <Ticket className="w-5 h-5" /> },
   { name: 'Football', icon: <Trophy className="w-5 h-5" /> },
   { name: 'Handball', icon: <Activity className="w-5 h-5" /> },
   { name: 'Volleyball', icon: <Users className="w-5 h-5" /> },
-  { name: 'Rugby', icon: <Ticket className="w-5 h-5" /> },
-  { name: 'Basketball', icon: <Star className="w-5 h-5" /> },
+  { name: 'Autres sports', icon: <Star className="w-5 h-5" /> },
 ];
 
 export default function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('Tous');
+
+  const filteredEvents = FEATURED_EVENTS.filter(event => {
+    const matchesCategory = selectedCategory === 'Tous' || event.category === selectedCategory;
+    const matchesSearch = event.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                         event.sport.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         event.location.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
 
   return (
     <div className="min-h-screen bg-zinc-50 font-sans text-zinc-900">
@@ -208,7 +247,12 @@ export default function App() {
               {CATEGORIES.map((cat) => (
                 <button 
                   key={cat.name}
-                  className="flex items-center gap-2 px-6 py-3 rounded-full bg-zinc-100 text-zinc-700 hover:bg-purple-50 hover:text-purple-600 transition-all whitespace-nowrap font-medium border border-transparent hover:border-purple-200"
+                  onClick={() => setSelectedCategory(cat.name)}
+                  className={`flex items-center gap-2 px-6 py-3 rounded-full transition-all whitespace-nowrap font-medium border ${
+                    selectedCategory === cat.name 
+                    ? 'bg-purple-600 text-white border-purple-600 shadow-lg shadow-purple-200' 
+                    : 'bg-zinc-100 text-zinc-700 hover:bg-purple-50 hover:text-purple-600 border-transparent hover:border-purple-200'
+                  }`}
                 >
                   {cat.icon}
                   {cat.name}
@@ -223,8 +267,14 @@ export default function App() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-end mb-12">
               <div>
-                <h2 className="text-3xl font-bold text-zinc-900 mb-2">Événements à la une</h2>
-                <p className="text-zinc-500">Ne manquez pas les meilleures affiches du moment</p>
+                <h2 className="text-3xl font-bold text-zinc-900 mb-2">
+                  {selectedCategory === 'Tous' ? 'Événements à la une' : `Événements : ${selectedCategory}`}
+                </h2>
+                <p className="text-zinc-500">
+                  {filteredEvents.length > 0 
+                    ? 'Ne manquez pas les meilleures affiches du moment' 
+                    : 'Aucun événement trouvé pour cette catégorie'}
+                </p>
               </div>
               <a href="#" className="hidden md:flex items-center gap-2 text-purple-600 font-semibold hover:gap-3 transition-all">
                 Voir tout <ArrowRight className="w-4 h-4" />
@@ -232,15 +282,17 @@ export default function App() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-              {FEATURED_EVENTS.map((event, index) => (
-                <motion.div
-                  key={event.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: index * 0.1 }}
-                  className="group bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all border border-zinc-100"
-                >
+              <AnimatePresence mode="popLayout">
+                {filteredEvents.map((event, index) => (
+                  <motion.div
+                    key={event.id}
+                    layout
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    transition={{ duration: 0.2 }}
+                    className="group bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all border border-zinc-100"
+                  >
                   <div className="relative h-48 overflow-hidden">
                     <img 
                       src={event.image} 
@@ -276,6 +328,7 @@ export default function App() {
                   </div>
                 </motion.div>
               ))}
+              </AnimatePresence>
             </div>
           </div>
         </section>
