@@ -333,6 +333,109 @@ export default function App() {
           </div>
         </section>
 
+        {/* VIP Section */}
+        <section className="py-24 bg-gradient-to-br from-zinc-50 to-purple-50/30 overflow-hidden relative">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+              <motion.div
+                initial={{ opacity: 0, x: -30 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                className="relative"
+              >
+                <div className="absolute -top-10 -left-10 w-40 h-40 bg-purple-200/50 blur-3xl rounded-full" />
+                <div className="relative z-10">
+                  <span className="inline-block px-4 py-1.5 rounded-full bg-purple-100 text-purple-700 text-sm font-bold uppercase tracking-wider mb-6">
+                    Expérience Exclusive
+                  </span>
+                  <h2 className="text-4xl md:text-5xl font-extrabold text-zinc-900 mb-8 leading-tight">
+                    Élevez votre passion avec nos <span className="text-purple-600">Offres VIP</span>
+                  </h2>
+                  <p className="text-lg text-zinc-600 mb-10 leading-relaxed">
+                    Accédez au prestige. Profitez des meilleurs emplacements, d'un service personnalisé et de moments inoubliables au cœur de l'action.
+                  </p>
+                  
+                  <div className="space-y-6">
+                    <div className="flex gap-4">
+                      <div className="flex-shrink-0 w-12 h-12 bg-white rounded-2xl shadow-sm border border-zinc-100 flex items-center justify-center text-purple-600">
+                        <Star className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-zinc-900">Loges & Salons Privés</h4>
+                        <p className="text-zinc-500 text-sm">Confort absolu et vue imprenable sur le terrain.</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-4">
+                      <div className="flex-shrink-0 w-12 h-12 bg-white rounded-2xl shadow-sm border border-zinc-100 flex items-center justify-center text-purple-600">
+                        <Activity className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-zinc-900">Service Gastronomique</h4>
+                        <p className="text-zinc-500 text-sm">Cocktails dînatoires et boissons à discrétion.</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-4">
+                      <div className="flex-shrink-0 w-12 h-12 bg-white rounded-2xl shadow-sm border border-zinc-100 flex items-center justify-center text-purple-600">
+                        <Users className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-zinc-900">Accès Prioritaire</h4>
+                        <p className="text-zinc-500 text-sm">Entrée dédiée et accueil personnalisé par nos hôtes.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button className="mt-12 bg-purple-600 text-white px-10 py-4 rounded-2xl font-bold hover:bg-purple-700 transition-all shadow-xl shadow-purple-200 flex items-center gap-3">
+                    Découvrir les offres VIP <ArrowRight className="w-5 h-5" />
+                  </button>
+                </div>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, x: 30 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                className="relative"
+              >
+                <div className="aspect-[4/5] rounded-[48px] overflow-hidden shadow-2xl relative group">
+                  <img 
+                    src="https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&q=80&w=1000" 
+                    alt="VIP Experience" 
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-purple-900/60 to-transparent" />
+                  <div className="absolute bottom-10 left-10 right-10">
+                    <div className="bg-white/10 backdrop-blur-md border border-white/20 p-6 rounded-3xl text-white">
+                      <p className="italic text-lg mb-4">"Une expérience hors du commun. Le service VIP a transformé notre soirée au stade en un souvenir mémorable."</p>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center font-bold">JD</div>
+                        <div>
+                          <p className="font-bold text-sm">Jean Dupont</p>
+                          <p className="text-xs text-white/70">Client Premium</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Floating Badge */}
+                <div className="absolute -bottom-6 -right-6 bg-white p-6 rounded-3xl shadow-2xl border border-zinc-100 hidden md:block">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-amber-100 rounded-2xl flex items-center justify-center text-amber-600">
+                      <Trophy className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-zinc-400 font-bold uppercase tracking-wider">Disponibilité</p>
+                      <p className="text-zinc-900 font-bold">Places Limitées</p>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          </div>
+        </section>
+
         {/* Why Choose Us */}
         <section className="py-24 bg-zinc-900 text-white overflow-hidden relative">
           <div className="absolute top-0 right-0 w-96 h-96 bg-purple-600/20 blur-[120px] rounded-full -mr-48 -mt-48" />
