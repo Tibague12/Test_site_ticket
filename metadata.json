@@ -1,0 +1,5 @@
+{
+  "name": "BuyTicket",
+  "description": "Plateforme de vente de billets pour événements sportifs (Football, Handball, Volleyball, etc.)",
+  "requestFramePermissions": []
+}
