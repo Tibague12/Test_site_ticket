@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, createContext, useContext } from 'react';
 import { 
   Search, 
   Menu, 
@@ -16,107 +16,264 @@ import {
   Users, 
   Ticket,
   ArrowRight,
-  Star
+  Star,
+  LogOut,
+  User as UserIcon,
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { 
+  auth, 
+  db, 
+  googleProvider, 
+  signInWithPopup, 
+  signOut, 
+  onAuthStateChanged,
+  User
+} from './firebase';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
-// Types
-interface SportEvent {
-  id: string;
-  title: string;
-  sport: string;
-  date: string;
-  location: string;
-  price: number;
-  image: string;
-  category: string;
+// --- Error Handling ---
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
 }
 
-const FEATURED_EVENTS: SportEvent[] = [
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId: string | undefined;
+    email: string | null | undefined;
+    emailVerified: boolean | undefined;
+    isAnonymous: boolean | undefined;
+    tenantId: string | null | undefined;
+    providerInfo: {
+      providerId: string;
+      displayName: string | null;
+      email: string | null;
+      photoUrl: string | null;
+    }[];
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData.map(provider => ({
+        providerId: provider.providerId,
+        displayName: provider.displayName,
+        email: provider.email,
+        photoUrl: provider.photoURL
+      })) || []
+    },
+    operationType,
+    path
+  }
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
+// --- Error Boundary ---
+interface ErrorBoundaryProps {
+  children: React.ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: any;
+}
+
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, error };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      let message = "Une erreur inattendue est survenue.";
+      try {
+        const parsed = JSON.parse(this.state.error.message);
+        if (parsed.error) message = `Erreur de base de données : ${parsed.error}`;
+      } catch (e) {
+        message = this.state.error.message || message;
+      }
+
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-zinc-50 p-4">
+          <div className="bg-white p-8 rounded-3xl shadow-xl max-w-md w-full text-center border border-zinc-100">
+            <div className="w-16 h-16 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <AlertCircle className="w-8 h-8" />
+            </div>
+            <h2 className="text-2xl font-bold text-zinc-900 mb-4">Oups !</h2>
+            <p className="text-zinc-600 mb-8">{message}</p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="w-full bg-purple-600 text-white py-3 rounded-xl font-bold hover:bg-purple-700 transition-colors"
+            >
+              Recharger la page
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// --- Constants ---
+const CATEGORIES = [
+  { name: 'Tous', icon: <Activity className="w-4 h-4" /> },
+  { name: 'Football', icon: <Trophy className="w-4 h-4" /> },
+  { name: 'Handball', icon: <Activity className="w-4 h-4" /> },
+  { name: 'Volleyball', icon: <Activity className="w-4 h-4" /> },
+  { name: 'Autres sports', icon: <Star className="w-4 h-4" /> },
+];
+
+const FEATURED_EVENTS = [
   {
-    id: '1',
-    title: 'PSG vs Marseille - Classique',
+    id: 1,
+    title: 'PSG vs Marseille',
     sport: 'Football',
+    category: 'Football',
     date: '25 Mars 2026',
     location: 'Parc des Princes, Paris',
     price: 85,
     image: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&q=80&w=800',
-    category: 'Football'
   },
   {
-    id: '2',
-    title: 'Finales de la Coupe de France',
-    sport: 'Handball',
-    date: '12 Avril 2026',
-    location: 'Accor Arena, Paris',
-    price: 45,
-    image: 'https://images.unsplash.com/photo-1519861531473-920036214751?auto=format&fit=crop&q=80&w=800',
-    category: 'Handball'
-  },
-  {
-    id: '3',
-    title: 'Championnat National',
-    sport: 'Volleyball',
-    date: '05 Avril 2026',
-    location: 'Palais des Sports, Lyon',
-    price: 30,
-    image: 'https://images.unsplash.com/photo-1592656670411-591e9c174631?auto=format&fit=crop&q=80&w=800',
-    category: 'Volleyball'
-  },
-  {
-    id: '4',
-    title: 'Tournoi des Six Nations',
-    sport: 'Rugby',
-    date: '18 Mars 2026',
-    location: 'Stade de France, Saint-Denis',
-    price: 95,
-    image: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=80&w=800',
-    category: 'Autres sports'
-  },
-  {
-    id: '5',
-    title: 'Lyon vs Monaco',
-    sport: 'Football',
-    date: '28 Mars 2026',
-    location: 'Groupama Stadium, Lyon',
-    price: 40,
-    image: 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?auto=format&fit=crop&q=80&w=800',
-    category: 'Football'
-  },
-  {
-    id: '6',
+    id: 2,
     title: 'Montpellier vs Nantes',
     sport: 'Handball',
-    date: '02 Avril 2026',
+    category: 'Handball',
+    date: '28 Mars 2026',
     location: 'Sud de France Arena, Montpellier',
     price: 25,
-    image: 'https://images.unsplash.com/photo-1519861531473-920036214751?auto=format&fit=crop&q=80&w=800',
-    category: 'Handball'
+    image: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&q=80&w=800',
   },
   {
-    id: '7',
-    title: 'All Star Game Basketball',
-    sport: 'Basketball',
-    date: '15 Avril 2026',
-    location: 'Accor Arena, Paris',
-    price: 55,
-    image: 'https://images.unsplash.com/photo-1504450758481-7338eba7524a?auto=format&fit=crop&q=80&w=800',
-    category: 'Autres sports'
-  }
+    id: 3,
+    title: 'Tours vs Chaumont',
+    sport: 'Volleyball',
+    category: 'Volleyball',
+    date: '30 Mars 2026',
+    location: 'Salle Grenon, Tours',
+    price: 15,
+    image: 'https://images.unsplash.com/photo-1592656670411-591e4338970e?auto=format&fit=crop&q=80&w=800',
+  },
+  {
+    id: 4,
+    title: 'France vs Angleterre',
+    sport: 'Rugby',
+    category: 'Autres sports',
+    date: '05 Avril 2026',
+    location: 'Stade de France, Saint-Denis',
+    price: 120,
+    image: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=80&w=800',
+  },
 ];
 
-const CATEGORIES = [
-  { name: 'Tous', icon: <Ticket className="w-5 h-5" /> },
-  { name: 'Football', icon: <Trophy className="w-5 h-5" /> },
-  { name: 'Handball', icon: <Activity className="w-5 h-5" /> },
-  { name: 'Volleyball', icon: <Users className="w-5 h-5" /> },
-  { name: 'Autres sports', icon: <Star className="w-5 h-5" /> },
-];
+// --- Auth Context ---
+interface AuthContextType {
+  user: User | null;
+  profile: any | null;
+  loading: boolean;
+  login: () => Promise<void>;
+  logout: () => Promise<void>;
+}
 
-export default function App() {
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
+  return context;
+};
+
+const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+          if (userDoc.exists()) {
+            setProfile(userDoc.data());
+          } else {
+            // Create profile if it doesn't exist
+            const newProfile = {
+              uid: currentUser.uid,
+              displayName: currentUser.displayName,
+              email: currentUser.email,
+              photoURL: currentUser.photoURL,
+              role: 'client',
+              createdAt: serverTimestamp()
+            };
+            await setDoc(doc(db, 'users', currentUser.uid), newProfile);
+            setProfile(newProfile);
+          }
+        } catch (error) {
+          handleFirestoreError(error, OperationType.GET, `users/${currentUser.uid}`);
+        }
+      } else {
+        setProfile(null);
+      }
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const login = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (error) {
+      console.error("Login Error:", error);
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error("Logout Error:", error);
+    }
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, profile, loading, login, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+// --- Main App Component ---
+function BuyTicketApp() {
+  const { user, profile, loading, login, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Tous');
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   const filteredEvents = FEATURED_EVENTS.filter(event => {
     const matchesCategory = selectedCategory === 'Tous' || event.category === selectedCategory;
@@ -125,6 +282,17 @@ export default function App() {
                          event.location.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
   });
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-zinc-50">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-10 h-10 text-purple-600 animate-spin" />
+          <p className="text-zinc-500 font-medium">Chargement de BuyTicket...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-zinc-50 font-sans text-zinc-900">
@@ -145,9 +313,62 @@ export default function App() {
               <a href="#" className="text-sm font-medium text-zinc-600 hover:text-purple-600 transition-colors">Événements</a>
               <a href="#" className="text-sm font-medium text-zinc-600 hover:text-purple-600 transition-colors">Sports</a>
               <a href="#" className="text-sm font-medium text-zinc-600 hover:text-purple-600 transition-colors">Aide</a>
-              <button className="bg-purple-600 text-white px-5 py-2 rounded-full text-sm font-semibold hover:bg-purple-700 transition-all shadow-lg shadow-purple-200">
-                Connexion
-              </button>
+              
+              {user ? (
+                <div className="relative">
+                  <button 
+                    onClick={() => setIsProfileOpen(!isProfileOpen)}
+                    className="flex items-center gap-3 p-1 pr-4 rounded-full bg-zinc-100 hover:bg-zinc-200 transition-all border border-zinc-200"
+                  >
+                    <img 
+                      src={user.photoURL || `https://ui-avatars.com/api/?name=${user.displayName}`} 
+                      alt="Profile" 
+                      className="w-8 h-8 rounded-full border border-white"
+                      referrerPolicy="no-referrer"
+                    />
+                    <span className="text-sm font-semibold text-zinc-700">{user.displayName?.split(' ')[0]}</span>
+                  </button>
+
+                  <AnimatePresence>
+                    {isProfileOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                        className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-2xl border border-zinc-100 py-2 z-50 overflow-hidden"
+                      >
+                        <div className="px-4 py-3 border-b border-zinc-50">
+                          <p className="text-sm font-bold text-zinc-900">{user.displayName}</p>
+                          <p className="text-xs text-zinc-500 truncate">{user.email}</p>
+                        </div>
+                        <button className="w-full flex items-center gap-3 px-4 py-3 text-sm text-zinc-600 hover:bg-purple-50 hover:text-purple-600 transition-colors">
+                          <UserIcon className="w-4 h-4" />
+                          Mon Profil
+                        </button>
+                        <button className="w-full flex items-center gap-3 px-4 py-3 text-sm text-zinc-600 hover:bg-purple-50 hover:text-purple-600 transition-colors">
+                          <Ticket className="w-4 h-4" />
+                          Mes Billets
+                        </button>
+                        <div className="h-px bg-zinc-50 my-1" />
+                        <button 
+                          onClick={logout}
+                          className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          Déconnexion
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              ) : (
+                <button 
+                  onClick={login}
+                  className="bg-purple-600 text-white px-5 py-2 rounded-full text-sm font-semibold hover:bg-purple-700 transition-all shadow-lg shadow-purple-200"
+                >
+                  Connexion
+                </button>
+              )}
             </div>
 
             {/* Mobile Menu Toggle */}
@@ -169,13 +390,40 @@ export default function App() {
               className="md:hidden bg-white border-b border-zinc-200 overflow-hidden"
             >
               <div className="px-4 py-6 space-y-4">
+                {user && (
+                  <div className="flex items-center gap-4 p-4 bg-zinc-50 rounded-2xl mb-4">
+                    <img 
+                      src={user.photoURL || `https://ui-avatars.com/api/?name=${user.displayName}`} 
+                      alt="Profile" 
+                      className="w-12 h-12 rounded-full"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div>
+                      <p className="font-bold text-zinc-900">{user.displayName}</p>
+                      <p className="text-xs text-zinc-500">{user.email}</p>
+                    </div>
+                  </div>
+                )}
                 <a href="#" className="block text-lg font-medium text-zinc-900">Accueil</a>
                 <a href="#" className="block text-lg font-medium text-zinc-900">Événements</a>
                 <a href="#" className="block text-lg font-medium text-zinc-900">Sports</a>
                 <a href="#" className="block text-lg font-medium text-zinc-900">Aide</a>
-                <button className="w-full bg-purple-600 text-white py-3 rounded-xl font-semibold">
-                  Connexion
-                </button>
+                {user ? (
+                  <button 
+                    onClick={logout}
+                    className="w-full bg-red-50 text-red-600 py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
+                  >
+                    <LogOut className="w-5 h-5" />
+                    Déconnexion
+                  </button>
+                ) : (
+                  <button 
+                    onClick={login}
+                    className="w-full bg-purple-600 text-white py-3 rounded-xl font-semibold"
+                  >
+                    Connexion
+                  </button>
+                )}
               </div>
             </motion.div>
           )}
@@ -551,5 +799,15 @@ export default function App() {
         </div>
       </footer>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <ErrorBoundary>
+      <AuthProvider>
+        <BuyTicketApp />
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
