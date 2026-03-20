@@ -196,6 +196,7 @@ interface AuthContextType {
   profile: any | null;
   loading: boolean;
   login: () => Promise<void>;
+  register: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -212,30 +213,36 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   const [profile, setProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const syncUserProfile = async (currentUser: User) => {
+    const userRef = doc(db, 'users', currentUser.uid);
+    try {
+      const userDoc = await getDoc(userRef);
+      if (userDoc.exists()) {
+        setProfile(userDoc.data());
+      } else {
+        // Create profile if it doesn't exist (Registration)
+        const newProfile = {
+          uid: currentUser.uid,
+          displayName: currentUser.displayName,
+          email: currentUser.email,
+          photoURL: currentUser.photoURL,
+          role: 'client',
+          createdAt: serverTimestamp()
+        };
+        await setDoc(userRef, newProfile);
+        setProfile(newProfile);
+        console.log("Nouveau profil utilisateur créé avec succès !");
+      }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.GET, `users/${currentUser.uid}`);
+    }
+  };
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
-        try {
-          const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-          if (userDoc.exists()) {
-            setProfile(userDoc.data());
-          } else {
-            // Create profile if it doesn't exist
-            const newProfile = {
-              uid: currentUser.uid,
-              displayName: currentUser.displayName,
-              email: currentUser.email,
-              photoURL: currentUser.photoURL,
-              role: 'client',
-              createdAt: serverTimestamp()
-            };
-            await setDoc(doc(db, 'users', currentUser.uid), newProfile);
-            setProfile(newProfile);
-          }
-        } catch (error) {
-          handleFirestoreError(error, OperationType.GET, `users/${currentUser.uid}`);
-        }
+        await syncUserProfile(currentUser);
       } else {
         setProfile(null);
       }
@@ -248,20 +255,26 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (error) {
-      console.error("Login Error:", error);
+      console.error("Erreur de connexion :", error);
     }
+  };
+
+  const register = async () => {
+    // For Google Auth, login and register use the same flow
+    // The syncUserProfile function handles the DB entry
+    await login();
   };
 
   const logout = async () => {
     try {
       await signOut(auth);
     } catch (error) {
-      console.error("Logout Error:", error);
+      console.error("Erreur de déconnexion :", error);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, profile, loading, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );
@@ -269,7 +282,7 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 
 // --- Main App Component ---
 function BuyTicketApp() {
-  const { user, profile, loading, login, logout } = useAuth();
+  const { user, profile, loading, login, logout, register } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Tous');
@@ -362,12 +375,20 @@ function BuyTicketApp() {
                   </AnimatePresence>
                 </div>
               ) : (
-                <button 
-                  onClick={login}
-                  className="bg-purple-600 text-white px-5 py-2 rounded-full text-sm font-semibold hover:bg-purple-700 transition-all shadow-lg shadow-purple-200"
-                >
-                  Connexion
-                </button>
+                <div className="flex items-center gap-3">
+                  <button 
+                    onClick={login}
+                    className="text-sm font-semibold text-zinc-600 hover:text-purple-600 transition-colors px-4 py-2"
+                  >
+                    Connexion
+                  </button>
+                  <button 
+                    onClick={register}
+                    className="bg-purple-600 text-white px-5 py-2 rounded-full text-sm font-semibold hover:bg-purple-700 transition-all shadow-lg shadow-purple-200"
+                  >
+                    S'inscrire
+                  </button>
+                </div>
               )}
             </div>
 
@@ -417,12 +438,20 @@ function BuyTicketApp() {
                     Déconnexion
                   </button>
                 ) : (
-                  <button 
-                    onClick={login}
-                    className="w-full bg-purple-600 text-white py-3 rounded-xl font-semibold"
-                  >
-                    Connexion
-                  </button>
+                  <div className="space-y-3">
+                    <button 
+                      onClick={login}
+                      className="w-full bg-zinc-100 text-zinc-900 py-3 rounded-xl font-semibold"
+                    >
+                      Connexion
+                    </button>
+                    <button 
+                      onClick={register}
+                      className="w-full bg-purple-600 text-white py-3 rounded-xl font-semibold"
+                    >
+                      S'inscrire
+                    </button>
+                  </div>
                 )}
               </div>
             </motion.div>
